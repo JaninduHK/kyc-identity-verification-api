@@ -1,0 +1,46 @@
+# Kestrel KYC — isolated test environment
+# Spins up disposable infra on alternate ports so it never collides with the
+# dev stack. Usage: docker compose -f docker-compose.test.yml up -d
+name: kestrel-kyc-test
+
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kestrel
+      POSTGRES_PASSWORD: kestrel_test_password
+      POSTGRES_DB: kestrel_kyc_test
+    ports:
+      - "55432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data   # ephemeral — wiped on container stop
+    volumes:
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kestrel -d kestrel_kyc_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  redis-test:
+    image: redis:7.2-alpine
+    ports:
+      - "56379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  rabbitmq-test:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: kestrel
+      RABBITMQ_DEFAULT_PASS: kestrel_test_password
+    ports:
+      - "55672:5672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 15

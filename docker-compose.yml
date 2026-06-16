@@ -1,0 +1,151 @@
+# Kestrel KYC — local development stack
+# Usage: cp .env.example .env.local && docker compose up
+name: kestrel-kyc
+
+x-service-env: &service-env
+  env_file:
+    - .env.local
+
+services:
+  # ----------------------------------------------------------------------- #
+  # Infrastructure
+  # ----------------------------------------------------------------------- #
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kestrel
+      POSTGRES_PASSWORD: kestrel_dev_password
+      POSTGRES_DB: kestrel_kyc
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Migrations run automatically, in filename order, on first init.
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kestrel -d kestrel_kyc"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: kestrel
+      RABBITMQ_DEFAULT_PASS: kestrel_dev_password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  temporal:
+    image: temporalio/auto-setup:1.24
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: kestrel
+      POSTGRES_PWD: kestrel_dev_password
+      POSTGRES_SEEDS: postgres
+    ports:
+      - "7233:7233"
+
+  temporal-ui:
+    image: temporalio/ui:2.26.2
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "8088:8080"
+
+  # ----------------------------------------------------------------------- #
+  # Application services
+  # ----------------------------------------------------------------------- #
+  gateway:
+    <<: *service-env
+    build: ./services/gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  orchestrator-worker:
+    <<: *service-env
+    build: ./services/orchestrator
+    command: ["node", "dist/worker.js"]
+    depends_on:
+      - temporal
+      - postgres
+
+  orchestrator:
+    <<: *service-env
+    build: ./services/orchestrator
+    command: ["node", "dist/server.js"]
+    ports:
+      - "3001:3001"
+    depends_on:
+      - orchestrator-worker
+      - temporal
+
+  document:
+    <<: *service-env
+    build: ./services/document
+    ports:
+      - "8001:8001"
+
+  biometric:
+    <<: *service-env
+    build: ./services/biometric
+    ports:
+      - "8002:8002"
+
+  aml:
+    <<: *service-env
+    build: ./services/aml
+    ports:
+      - "3002:3002"
+
+  risk:
+    <<: *service-env
+    build: ./services/risk
+    ports:
+      - "8003:8003"
+
+  audit:
+    <<: *service-env
+    build: ./services/audit
+    ports:
+      - "8004:8004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  notification:
+    <<: *service-env
+    build: ./services/notification
+    ports:
+      - "3003:3003"
+
+volumes:
+  pgdata:

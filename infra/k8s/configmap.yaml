@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kestrel-config
+  namespace: kestrel
+data:
+  TEMPORAL_ADDRESS: "temporal-frontend:7233"
+  TEMPORAL_NAMESPACE: "kestrel"
+  AWS_REGION: "ap-south-1"
+  ONFIDO_BASE_URL: "https://api.onfido.com/v3.6"
+  LOG_LEVEL: "info"
+  NODE_ENV: "production"
+  GATEWAY_PORT: "8080"
+  ORCHESTRATOR_PORT: "3001"
+  DOCUMENT_PORT: "8000"
+  BIOMETRIC_PORT: "8001"
+  AML_PORT: "3002"
+  RISK_PORT: "8002"
+  AUDIT_PORT: "8081"
+  NOTIFICATION_PORT: "3003"
+  GATEWAY_URL: "http://gateway:8080"
+  ORCHESTRATOR_URL: "http://orchestrator:3001"
+  DOCUMENT_URL: "http://document:8000"
+  BIOMETRIC_URL: "http://biometric:8001"
+  AML_URL: "http://aml:3002"
+  RISK_URL: "http://risk:8002"
+  AUDIT_URL: "http://audit:8081"
+  NOTIFICATION_URL: "http://notification:3003"

@@ -1,0 +1,51 @@
+# ---- Environment & secrets -------------------------------------------------
+.env
+.env.local
+.env.*.local
+*.pem
+keys/
+
+# ---- Go --------------------------------------------------------------------
+/services/*/bin/
+*.exe
+*.test
+*.out
+vendor/
+
+# ---- Node.js / TypeScript --------------------------------------------------
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+coverage/
+.npm/
+
+# ---- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Docker ----------------------------------------------------------------
+docker-compose.override.yml
+
+# ---- Terraform -------------------------------------------------------------
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+
+# ---- IDE / OS --------------------------------------------------------------
+.DS_Store
+.idea/
+.vscode/
+*.swp

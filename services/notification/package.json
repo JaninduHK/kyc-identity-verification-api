@@ -1,0 +1,23 @@
+{
+  "name": "notification",
+  "version": "0.1.0",
+  "description": "Webhook delivery, email, and SMS notification service for the Kestrel KYC platform",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node src/server.ts"
+  },
+  "dependencies": {
+    "fastify": "^4.28.0",
+    "axios": "^1.7.0",
+    "@sendgrid/mail": "^8.1.0",
+    "twilio": "^5.2.0",
+    "pino": "^9.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "ts-node": "^10.9.2",
+    "@types/node": "^20.14.0"
+  }
+}

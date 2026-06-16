@@ -1,0 +1,25 @@
+{
+  "name": "aml",
+  "version": "0.1.0",
+  "description": "AML screening and STR report generation service for the Kestrel KYC platform",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node src/server.ts"
+  },
+  "dependencies": {
+    "fastify": "^4.28.0",
+    "axios": "^1.7.0",
+    "pdfkit": "^0.15.0",
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/client-ses": "^3.600.0",
+    "pino": "^9.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "ts-node": "^10.9.2",
+    "@types/node": "^20.14.0",
+    "@types/pdfkit": "^0.13.4"
+  }
+}
