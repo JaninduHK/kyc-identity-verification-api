@@ -40,13 +40,46 @@ type verifyIndividualRequest struct {
 }
 
 // orchestratorStartRequest is the payload sent to the orchestrator to kick off
-// verification.
+// verification. The orchestrator requires sessionId, clientId, nicImageBase64,
+// and country, so those are always populated before dispatch.
 type orchestratorStartRequest struct {
-	SessionID    string `json:"sessionId"`
-	ClientID     string `json:"clientId"`
-	WorkflowType string `json:"workflowType,omitempty"`
-	Country      string `json:"country,omitempty"`
-	WebhookURL   string `json:"webhookUrl,omitempty"`
+	SessionID      string `json:"sessionId"`
+	ClientID       string `json:"clientId"`
+	NICImageBase64 string `json:"nicImageBase64"`
+	SelfieBase64   string `json:"selfieBase64,omitempty"`
+	WorkflowType   string `json:"workflowType"`
+	Country        string `json:"country"`
+	WebhookURL     string `json:"webhookUrl,omitempty"`
+}
+
+const (
+	// defaultWorkflowType is used when the client omits workflowType. It must be
+	// one of the values permitted by the verification_sessions CHECK constraint
+	// (cdd, edd).
+	defaultWorkflowType = "cdd"
+	// defaultCountry mirrors the verification_sessions.country column default and
+	// keeps the orchestrator payload's required country field non-empty.
+	defaultCountry = "LK"
+)
+
+// resolveWorkflowType returns the requested workflow type, falling back to the
+// default when empty. The result must satisfy the verification_sessions
+// workflow_type CHECK constraint (cdd, edd).
+func resolveWorkflowType(requested string) string {
+	if requested == "" {
+		return defaultWorkflowType
+	}
+	return requested
+}
+
+// resolveCountry returns the requested ISO country code, falling back to the
+// default when empty so both the NOT NULL column and the orchestrator's
+// required country field are satisfied.
+func resolveCountry(requested string) string {
+	if requested == "" {
+		return defaultCountry
+	}
+	return requested
 }
 
 // VerifyIndividual handles POST /v1/verify/individual. It validates the
@@ -71,15 +104,8 @@ func (h *Handler) VerifyIndividual(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessionID := uuid.NewString()
-	workflowType := req.WorkflowType
-	if workflowType == "" {
-		workflowType = "individual"
-	}
-
-	var country interface{}
-	if req.Country != "" {
-		country = req.Country
-	}
+	workflowType := resolveWorkflowType(req.WorkflowType)
+	country := resolveCountry(req.Country)
 
 	_, err := h.Pool.Exec(r.Context(),
 		`INSERT INTO verification_sessions (id, client_id, status, workflow_type, country)
@@ -99,11 +125,13 @@ func (h *Handler) VerifyIndividual(w http.ResponseWriter, r *http.Request) {
 	// Fire-and-forget the orchestrator start request so the handler returns
 	// quickly even if the orchestrator is slow or unavailable.
 	h.startOrchestration(orchestratorStartRequest{
-		SessionID:    sessionID,
-		ClientID:     clientID,
-		WorkflowType: workflowType,
-		Country:      req.Country,
-		WebhookURL:   req.WebhookURL,
+		SessionID:      sessionID,
+		ClientID:       clientID,
+		NICImageBase64: req.NICImageBase64,
+		SelfieBase64:   req.SelfieBase64,
+		WorkflowType:   workflowType,
+		Country:        country,
+		WebhookURL:     req.WebhookURL,
 	})
 
 	writeJSON(w, http.StatusAccepted, map[string]string{
