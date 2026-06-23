@@ -1,69 +1,48 @@
-"""Kestrel Biometric Service FastAPI application."""
-import json
+"""Kestrel Biometric Service FastAPI application.
+
+Liveness detection and face matching via Onfido (primary) with an AWS
+Rekognition fallback. Runs on port 8002 and is called internally by the
+Temporal orchestrator.
+"""
 import logging
-import sys
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 
-from app.config import settings
-from app.models import BiometricCheckRequest, BiometricCheckResult
-from app.onfido_biometric import run_biometric_check
+from app.config import get_settings
+from app.router import router
 
-
-class JsonFormatter(logging.Formatter):
-    """Lightweight JSON log formatter."""
-
-    def format(self, record: logging.LogRecord) -> str:
-        payload = {
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-            "time": self.formatTime(record),
-        }
-        if record.exc_info:
-            payload["exc_info"] = self.formatException(record.exc_info)
-        return json.dumps(payload)
+settings = get_settings()
 
 
 def _configure_logging() -> None:
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(JsonFormatter())
-    root = logging.getLogger()
-    root.handlers = [handler]
-    root.setLevel(settings.log_level.upper())
+    """Configure JSON-style structured logging for the service."""
+    logging.basicConfig(
+        level=settings.LOG_LEVEL.upper(),
+        format=(
+            '{"time": "%(asctime)s", "level": "%(levelname)s", '
+            '"service": "biometric", "msg": "%(message)s"}'
+        ),
+    )
 
 
 _configure_logging()
 logger = logging.getLogger("kestrel.biometric")
 
-app = FastAPI(title="Kestrel Biometric Service", version="0.1.0")
+app = FastAPI(
+    title="Kestrel Biometric Service",
+    version="0.1.0",
+    description="Liveness detection and face matching via Onfido",
+)
+app.include_router(router)
 
 
-@app.get("/health")
-async def health() -> dict:
-    """Liveness probe."""
-    return {"status": "ok", "service": "biometric", "version": "0.1.0"}
-
-
-@app.get("/ready")
-async def ready() -> dict:
-    """Readiness probe. This service has no DB, so it is always ready."""
-    return {"status": "ready"}
-
-
-@app.post("/internal/check", response_model=BiometricCheckResult)
-async def internal_check(req: BiometricCheckRequest) -> BiometricCheckResult:
-    """Run an internal biometric verification check."""
-    try:
-        return await run_biometric_check(
-            req.applicant_id, req.selfie_base64, req.document_id
-        )
-    except Exception as e:  # noqa: BLE001
-        logger.exception("Biometric check failed")
-        raise HTTPException(status_code=500, detail=str(e))
+@app.on_event("startup")
+async def on_startup() -> None:
+    """Log service startup."""
+    logger.info("Biometric service started on port %s", settings.BIOMETRIC_PORT)
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=settings.biometric_port)
+    uvicorn.run(app, host="0.0.0.0", port=settings.BIOMETRIC_PORT)
