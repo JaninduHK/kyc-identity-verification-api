@@ -5,6 +5,8 @@ Rekognition fallback. Runs on port 8002 and is called internally by the
 Temporal orchestrator.
 """
 import logging
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
 
 from fastapi import FastAPI
 
@@ -28,18 +30,22 @@ def _configure_logging() -> None:
 _configure_logging()
 logger = logging.getLogger("kestrel.biometric")
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Log service startup and shutdown."""
+    logger.info("Biometric service started on port %s", settings.BIOMETRIC_PORT)
+    yield
+    logger.info("Biometric service shutting down")
+
+
 app = FastAPI(
     title="Kestrel Biometric Service",
     version="0.1.0",
     description="Liveness detection and face matching via Onfido",
+    lifespan=lifespan,
 )
 app.include_router(router)
-
-
-@app.on_event("startup")
-async def on_startup() -> None:
-    """Log service startup."""
-    logger.info("Biometric service started on port %s", settings.BIOMETRIC_PORT)
 
 
 if __name__ == "__main__":
