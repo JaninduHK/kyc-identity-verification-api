@@ -17,11 +17,28 @@ app.get('/ready', async () => {
   return { status: 'ready' };
 });
 
-app.post('/internal/screen', async (request: FastifyRequest) => {
-  const body = request.body as AMLScreenRequest;
-  const result = await screenIndividual(body);
-  return result;
-});
+const screenSchema = {
+  body: {
+    type: 'object',
+    required: ['name', 'country', 'sessionId'],
+    properties: {
+      name: { type: 'string', minLength: 1 },
+      country: { type: 'string', minLength: 1 },
+      sessionId: { type: 'string', minLength: 1 },
+      dob: { type: 'string' },
+    },
+  },
+};
+
+app.post(
+  '/internal/screen',
+  { schema: screenSchema },
+  async (request: FastifyRequest) => {
+    const body = request.body as AMLScreenRequest;
+    // Throws AMLProviderError (502) on provider failure — fail closed.
+    return screenIndividual(body);
+  }
+);
 
 app.setErrorHandler(
   (error: FastifyError, _request: FastifyRequest, reply: FastifyReply) => {

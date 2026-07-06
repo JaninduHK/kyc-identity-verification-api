@@ -1,9 +1,9 @@
 import axios from 'axios';
 import { config, logger } from './config';
 
-export async function scheduleRescreening(clientId: string): Promise<void> {
-  logger.info({ clientId }, 'ongoing monitoring scheduled');
-}
+// Ongoing monitoring is delegated to ComplyAdvantage's native monitoring
+// (searches are created with `is_monitored: true` in screening.ts), so there
+// is no local rescreening scheduler to maintain here.
 
 export interface ComplianceAlertData {
   sessionId: string;

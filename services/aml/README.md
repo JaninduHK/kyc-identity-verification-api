@@ -35,17 +35,35 @@ Request body:
 }
 ```
 
+`name`, `country` and `sessionId` are required and validated by a JSON schema;
+a malformed body returns `400` before any provider call is made.
+
 Response (`AMLScreenResult`):
 
 ```json
 {
+  "status": "completed",
   "match": true,
   "riskLevel": "high",
   "requiresSTR": true,
   "hits": [{ "name": "John Doe", "matchTypes": ["sanction"] }],
+  "searchId": "12345",
   "strS3Key": "str-reports/session-123/STR-2026-06-08T00-00-00-000Z.pdf"
 }
 ```
+
+## Behaviour notes
+
+- **Fail closed.** If the ComplyAdvantage call fails, the service returns
+  `502` and throws rather than fabricating a clean pass — a screening that could
+  not run must never look like "no match" on a compliance path.
+- **STR resilience.** A sanction match is always returned even if STR
+  generation or the compliance alert fails; the failure is surfaced in
+  `strError` (and logged) instead of discarding the match.
+- **Auth.** The ComplyAdvantage key is sent via the `Authorization: Token …`
+  header, never as a query parameter (which would leak it into logs).
+- **Ongoing monitoring.** Searches are created with `is_monitored: true`, so
+  ComplyAdvantage re-screens flagged subjects as watchlists change.
 
 ## Risk Levels
 
