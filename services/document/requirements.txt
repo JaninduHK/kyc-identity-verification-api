@@ -9,3 +9,6 @@ numpy
 boto3
 pydantic
 pydantic-settings
+pytest
+pytest-asyncio
+pytest-mock

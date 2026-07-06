@@ -16,16 +16,11 @@ interface DocumentCheckResponse {
   documentId?: string;
 }
 
-function defaultResult(): DocumentCheckResult {
-  return {
-    checkType: 'document',
-    provider: 'onfido',
-    status: 'error',
-    result: 'error',
-    confidence: 0,
-  };
-}
-
+/**
+ * Calls the document service. Throws on transport/5xx failures so Temporal
+ * retries; logical failures come back as a 200 body with status="error" and
+ * are returned as-is for the risk engine to score.
+ */
 export async function runOnfidoDocumentCheck(input: CDDInput): Promise<DocumentCheckResult> {
   try {
     const response = await axios.post<DocumentCheckResponse>(
@@ -50,6 +45,6 @@ export async function runOnfidoDocumentCheck(input: CDDInput): Promise<DocumentC
     };
   } catch (err) {
     logger.error({ err, sessionId: input.sessionId }, 'document check failed');
-    return defaultResult();
+    throw err;
   }
 }

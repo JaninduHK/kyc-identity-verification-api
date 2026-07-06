@@ -13,10 +13,11 @@ interface RiskResponse {
   factors?: string[];
 }
 
-function defaultResult(): RiskResult {
-  return { score: 50, factors: ['scoring_unavailable'] };
-}
-
+/**
+ * Calls the risk scoring service. Throws on failure so Temporal retries; the
+ * workflow supplies a neutral fallback score if scoring is still unavailable
+ * after retries.
+ */
 export async function runRiskScoring(input: {
   sessionId: string;
   document: DocumentCheckResult;
@@ -39,6 +40,6 @@ export async function runRiskScoring(input: {
     };
   } catch (err) {
     logger.error({ err, sessionId: input.sessionId }, 'risk scoring failed');
-    return defaultResult();
+    throw err;
   }
 }

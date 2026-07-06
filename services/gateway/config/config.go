@@ -3,6 +3,7 @@
 package config
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"strings"
@@ -14,8 +15,10 @@ type Config struct {
 	DatabaseURL        string
 	RedisURL           string
 	DatabaseEncryptKey string
-	OrchestratorURL    string
-	LogLevel           string
+	// EncryptKey is the 32-byte AES-256 key derived from DatabaseEncryptKey.
+	EncryptKey      []byte
+	OrchestratorURL string
+	LogLevel        string
 }
 
 // Load reads configuration from environment variables, applying defaults and
@@ -44,6 +47,13 @@ func Load() (*Config, error) {
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
 	}
+
+	// Derive a fixed 32-byte AES-256 key from the configured secret via
+	// SHA-256. This guarantees a valid key length regardless of how the secret
+	// is encoded, so PII encryption can never fail at runtime on a
+	// wrong-length key (the previous config validated nothing).
+	sum := sha256.Sum256([]byte(cfg.DatabaseEncryptKey))
+	cfg.EncryptKey = sum[:]
 
 	return cfg, nil
 }

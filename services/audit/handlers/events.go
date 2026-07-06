@@ -77,6 +77,27 @@ func (h *Handler) GetEvents(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// VerifyChain recomputes the entire audit hash chain and reports its integrity.
+func (h *Handler) VerifyChain(w http.ResponseWriter, r *http.Request) {
+	result, err := h.Store.VerifyChain(r.Context())
+	if err != nil {
+		slog.Error("failed to verify audit chain", "error", err)
+		writeError(w, http.StatusInternalServerError, "verify_failed", "could not verify audit chain")
+		return
+	}
+
+	// A broken chain is a successful verification with a negative result, not a
+	// server error — surface it as 200 with valid=false so callers can alert.
+	if !result.Valid {
+		slog.Error("audit chain integrity check failed",
+			"brokenAt", result.BrokenAt,
+			"count", result.Count,
+		)
+	}
+
+	writeJSON(w, http.StatusOK, result)
+}
+
 func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

@@ -49,6 +49,7 @@ export interface AMLResult extends CheckResult {
   riskLevel: AMLRiskLevel;
   requiresSTR: boolean;
   hits: AMLHit[];
+  strS3Key?: string;
 }
 
 export interface IPResult extends CheckResult {

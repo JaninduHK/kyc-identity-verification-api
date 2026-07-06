@@ -9,11 +9,15 @@ verification logic itself, only edge concerns.
 ## Responsibilities
 
 - **Authentication** — validates API keys (SHA-256 hashed) against Postgres
-  with a 5-minute Redis cache.
+  with a short (30s) Redis cache so revocations take effect quickly.
 - **Rate limiting** — Redis sliding-window limiter (sorted set) keyed by client
   ID, default 100 requests / 60s.
-- **Routing** — creates verification sessions and fires fire-and-forget start
-  requests to the orchestrator.
+- **PII protection** — encrypts `name`/`dob` with AES-256-GCM before storing
+  them in the `verification_sessions` PII columns; captures the client IP; and
+  records the webhook URL. Request bodies are capped at 12 MiB.
+- **Routing** — creates verification sessions and dispatches start requests to
+  the orchestrator. If dispatch fails, the session is marked `failed` rather
+  than left stuck in `processing`.
 - **Observability** — structured JSON request logging via `slog`, panic
   recovery, and liveness/readiness probes.
 
@@ -26,8 +30,8 @@ verification logic itself, only edge concerns.
 | POST   | `/v1/verify/individual`   | Yes  | Starts an individual KYC verification. Returns 202 with `sessionId`. |
 | GET    | `/v1/sessions/{id}`       | Yes  | Returns a single verification session (no PII). |
 | GET    | `/v1/sessions`            | Yes  | Lists sessions with `?limit` (default 20, max 100) and `?offset`. |
-| GET    | `/v1/webhooks`            | Yes  | Lists registered webhooks (stub). |
-| POST   | `/v1/webhooks`            | Yes  | Registers a webhook (stub). |
+| GET    | `/v1/webhooks`            | Yes  | Lists the client's registered webhooks. |
+| POST   | `/v1/webhooks`            | Yes  | Registers a webhook. Body `{ "url": "https://…", "description": "…" }`; returns 201. |
 
 ### Authentication
 
@@ -55,8 +59,11 @@ Common codes: `unauthorized` (401), `invalid_request` (400), `not_found` (404),
 curl -X POST http://localhost:8080/v1/verify/individual \
   -H "X-API-Key: $KESTREL_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"nicImageBase64":"<base64>","selfieBase64":"<base64>","country":"LK"}'
+  -d '{"nicImageBase64":"<base64>","selfieBase64":"<base64>","name":"Nimal Perera","dob":"1990-05-01","country":"LK"}'
 ```
+
+`name` and `dob` are optional; when supplied they are encrypted at rest and
+forwarded to AML screening.
 
 ```json
 { "sessionId": "…", "status": "processing" }
@@ -69,7 +76,7 @@ curl -X POST http://localhost:8080/v1/verify/individual \
 | `GATEWAY_PORT`         | No       | `8080`                    | HTTP listen port. |
 | `DATABASE_URL`         | Yes      | —                         | Postgres connection URL (pgx). |
 | `REDIS_URL`            | Yes      | —                         | Redis connection URL (`redis://…`). |
-| `DATABASE_ENCRYPT_KEY` | Yes      | —                         | 32-byte AES-256 key for PII encryption. |
+| `DATABASE_ENCRYPT_KEY` | Yes      | —                         | Secret for PII encryption; SHA-256 derives a 32-byte AES-256 key from it (any encoding works). |
 | `ORCHESTRATOR_URL`     | No       | `http://orchestrator:3001`| Base URL of the orchestrator service. |
 | `LOG_LEVEL`            | No       | `info`                    | One of `debug`, `info`, `warn`, `error`. |
 
@@ -93,7 +100,8 @@ ships it on `gcr.io/distroless/static-debian12`.
 
 ## Backing tables
 
-The gateway reads/writes two tables owned by platform migrations:
+The gateway reads/writes tables owned by platform migrations:
 
 - `api_keys(id, client_id, key_hash, key_prefix, environment, revoked, created_at)`
-- `verification_sessions(id, client_id, status, workflow_type, country, risk_score, decision, …, created_at)`
+- `verification_sessions(id, client_id, status, workflow_type, country, name_encrypted, dob_encrypted, ip_address, webhook_url, risk_score, decision, …, created_at)`
+- `webhooks(id, client_id, url, description, active, created_at)` — migration `004`

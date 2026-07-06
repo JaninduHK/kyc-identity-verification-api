@@ -28,13 +28,33 @@ IO (HTTP, Postgres) lives in activities (`src/activities/*`), which run outside 
 
 ## Workflows
 
-- `cddWorkflow` — Customer Due Diligence. Runs document, biometric, AML and IP checks in parallel
-  (`Promise.allSettled`), scores risk, and decides:
+Both workflows share `runAllChecks` and `finalize` (see `src/workflows/pipeline.ts`) and differ
+only in the decision function (`src/workflows/decision.ts`).
+
+Check orchestration (`runAllChecks`): document and biometric run as a **sequential chain** —
+biometric needs the Onfido `applicantId`/`documentId` the document check produces — while AML and
+IP run **concurrently** alongside them (`Promise.allSettled`). Biometric is skipped (not failed)
+when no selfie was supplied or the document check yielded no IDs. Risk scoring runs last over the
+aggregated results.
+
+- `cddWorkflow` — Customer Due Diligence. Decision from the risk score:
   - `score < 30` → `approved`
   - `30 <= score <= 70` → `manual_review`
   - `score > 70` → `rejected`
-- `eddWorkflow` — Enhanced Due Diligence. Same checks, but emits an `EDD_MANUAL_REVIEW_REQUIRED`
-  audit event and forces `manual_review` for any non-`rejected` outcome.
+- `eddWorkflow` — Enhanced Due Diligence, materially stricter (`eddDecision`): rejects on any
+  high-risk/STR AML hit, sends any other AML match or any non-clear / non-live biometric to
+  `manual_review`, and approves straight-through only below a score of 15. Emits an
+  `EDD_MANUAL_REVIEW_REQUIRED` audit event when it lands in manual review.
+
+### Retries & failure handling
+
+Activities **rethrow** downstream failures so Temporal's `maximumAttempts: 3` retry actually
+fires (they no longer swallow errors and return defaults). After retries are exhausted, the
+workflow degrades gracefully: document/biometric/AML/IP fall back to an `error` result via
+`Promise.allSettled`, and risk falls back to a neutral score. Persistence and audit are essential
+(a final failure fails the workflow visibly); the webhook is best-effort because the notification
+service performs its own durable retries. `saveVerificationResult` writes one `verification_checks`
+row per check inside an idempotent transaction (safe to retry).
 
 ## HTTP Endpoints (server)
 

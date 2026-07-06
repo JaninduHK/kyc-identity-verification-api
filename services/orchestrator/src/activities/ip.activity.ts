@@ -11,17 +11,10 @@ interface IPResponse {
   country?: string;
 }
 
-function defaultResult(): IPResult {
-  return {
-    checkType: 'ip',
-    provider: 'internal',
-    status: 'error',
-    ipRiskScore: 0,
-    isVpn: false,
-    isProxy: false,
-  };
-}
-
+/**
+ * Calls the IP risk endpoint. Throws on transport/5xx so Temporal retries; the
+ * workflow degrades to a default IP result only after retries are exhausted.
+ */
 export async function runIPRiskCheck(input: {
   sessionId: string;
   ipAddress?: string;
@@ -44,6 +37,6 @@ export async function runIPRiskCheck(input: {
     };
   } catch (err) {
     logger.error({ err, sessionId: input.sessionId }, 'ip risk check failed');
-    return defaultResult();
+    throw err;
   }
 }

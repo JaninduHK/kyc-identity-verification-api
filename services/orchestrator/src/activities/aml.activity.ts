@@ -9,20 +9,13 @@ interface AMLResponse {
   riskLevel?: AMLRiskLevel;
   requiresSTR?: boolean;
   hits?: AMLHit[];
+  strS3Key?: string;
 }
 
-function defaultResult(): AMLResult {
-  return {
-    checkType: 'aml',
-    provider: 'internal',
-    status: 'error',
-    match: false,
-    riskLevel: 'none',
-    requiresSTR: false,
-    hits: [],
-  };
-}
-
+/**
+ * Calls the AML service. It fails closed (502 on provider error), so a thrown
+ * error here is retried by Temporal rather than being treated as a clean pass.
+ */
 export async function runAMLScreening(input: {
   name?: string;
   dob?: string;
@@ -46,9 +39,10 @@ export async function runAMLScreening(input: {
       riskLevel: data.riskLevel ?? 'none',
       requiresSTR: data.requiresSTR ?? false,
       hits: data.hits ?? [],
+      strS3Key: data.strS3Key,
     };
   } catch (err) {
     logger.error({ err, sessionId: input.sessionId }, 'aml screening failed');
-    return defaultResult();
+    throw err;
   }
 }

@@ -22,9 +22,23 @@ interface ComplyAdvantageHit {
 interface ComplyAdvantageResponse {
   content?: {
     data?: {
+      id?: number | string;
       hits?: ComplyAdvantageHit[];
     };
   };
+}
+
+/**
+ * Raised when the upstream screening provider (ComplyAdvantage) fails. It
+ * carries an HTTP 502 so the service fails *closed*: a screening we could not
+ * complete must never look like a clean pass on a compliance-critical path.
+ */
+export class AMLProviderError extends Error {
+  readonly statusCode = 502;
+  constructor(message: string) {
+    super(message);
+    this.name = 'AMLProviderError';
+  }
 }
 
 function hasSanction(hits: AMLMatch[]): boolean {
@@ -72,32 +86,64 @@ function parseHits(response: ComplyAdvantageResponse): AMLMatch[] {
   });
 }
 
+// ComplyAdvantage authenticates via the Authorization header. Sending the key
+// as a query param (the previous behaviour) leaks it into URLs, proxy logs and
+// error traces.
+function authHeader(): Record<string, string> {
+  return { Authorization: `Token ${config.COMPLY_ADVANTAGE_KEY}` };
+}
+
 export async function screenIndividual(
   params: AMLScreenRequest
 ): Promise<AMLScreenResult> {
+  let data: ComplyAdvantageResponse;
   try {
-    const url = `${config.COMPLY_ADVANTAGE_URL}/searches?api_key=${config.COMPLY_ADVANTAGE_KEY}`;
-    const { data } = await axios.post<ComplyAdvantageResponse>(url, {
-      search_term: params.name,
-      fuzziness: 0.7,
-      filters: {
-        types: ['sanction', 'pep', 'warning', 'adverse-media'],
+    const response = await axios.post<ComplyAdvantageResponse>(
+      `${config.COMPLY_ADVANTAGE_URL}/searches`,
+      {
+        search_term: params.name,
+        fuzziness: 0.7,
+        filters: {
+          types: ['sanction', 'pep', 'warning', 'adverse-media'],
+        },
+        client_ref: params.sessionId,
+        // Register the search for ComplyAdvantage's native ongoing monitoring
+        // so flagged subjects are re-screened as watchlists change.
+        is_monitored: true,
       },
-      client_ref: params.sessionId,
-    });
+      { headers: authHeader() }
+    );
+    data = response.data;
+  } catch (err) {
+    // Fail closed: never fabricate a clean pass when we could not screen.
+    logger.error(
+      { err, sessionId: params.sessionId },
+      'AML provider call failed'
+    );
+    throw new AMLProviderError('ComplyAdvantage screening request failed');
+  }
 
-    const hits = parseHits(data);
-    const riskLevel = determineRiskLevel(hits);
-    const sanctioned = hasSanction(hits);
+  const hits = parseHits(data);
+  const riskLevel = determineRiskLevel(hits);
+  const sanctioned = hasSanction(hits);
+  const searchId = data.content?.data?.id;
 
-    const result: AMLScreenResult = {
-      match: hits.length > 0,
-      riskLevel,
-      requiresSTR: sanctioned,
-      hits,
-    };
+  const result: AMLScreenResult = {
+    status: 'completed',
+    match: hits.length > 0,
+    riskLevel,
+    requiresSTR: sanctioned,
+    hits,
+  };
+  if (searchId !== undefined) {
+    result.searchId = String(searchId);
+  }
 
-    if (sanctioned) {
+  if (sanctioned) {
+    // A sanction match is the compliance-critical signal and must survive even
+    // if STR generation/alerting fails — surface the failure via strError
+    // rather than discarding the match.
+    try {
       const strData: {
         sessionId: string;
         subjectName: string;
@@ -122,19 +168,14 @@ export async function screenIndividual(
         subjectName: params.name,
         s3Key,
       });
+    } catch (err) {
+      logger.error(
+        { err, sessionId: params.sessionId },
+        'STR generation/alert failed after sanction match'
+      );
+      result.strError = err instanceof Error ? err.message : String(err);
     }
-
-    return result;
-  } catch (err) {
-    logger.error(
-      { err, sessionId: params.sessionId },
-      'AML screening failed'
-    );
-    return {
-      match: false,
-      riskLevel: 'none',
-      requiresSTR: false,
-      hits: [],
-    };
   }
+
+  return result;
 }

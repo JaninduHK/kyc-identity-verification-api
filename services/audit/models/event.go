@@ -22,6 +22,7 @@ type AuditEvent struct {
 type StoredEvent struct {
 	ID        int64           `json:"id"`
 	EventType string          `json:"eventType"`
+	Actor     string          `json:"actor"`
 	Data      json.RawMessage `json:"data"`
 	Hash      string          `json:"hash"`
 	CreatedAt time.Time       `json:"createdAt"`

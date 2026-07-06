@@ -146,6 +146,9 @@ services:
     build: ./services/notification
     ports:
       - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:

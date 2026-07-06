@@ -58,12 +58,30 @@ def rule_based_score(checks: dict[str, Any]) -> tuple[float, list[str]]:
         factors.append("aml_high_risk")
 
     # Biometric overall result.
-    if biometric.get("result") == "consider":
+    biometric_result = biometric.get("result")
+    if biometric_result == "consider":
         total += 50.0
         factors.append("biometric_consider")
+    elif biometric_result == "unidentified":
+        total += 40.0
+        factors.append("biometric_unidentified")
+    elif biometric_result == "error":
+        # The check could not be completed — treat as unverified, not a pass.
+        total += 40.0
+        factors.append("biometric_error")
 
-    # Document image integrity (may be a dict with a 'result' key).
-    image_integrity = _as_dict(document.get("image_integrity"))
+    # Biometric liveness: only meaningful when a real check ran (not on error).
+    if biometric_result in ("clear", "consider"):
+        liveness = biometric.get("livenessPassed", biometric.get("liveness_passed"))
+        if liveness is False:
+            total += 20.0
+            factors.append("biometric_liveness_failed")
+
+    # Document image integrity (accept camelCase and snake_case; dict with a
+    # 'result' key).
+    image_integrity = _as_dict(
+        document.get("imageIntegrity", document.get("image_integrity"))
+    )
     if image_integrity.get("result") == "consider":
         total += 70.0
         factors.append("image_integrity_consider")

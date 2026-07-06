@@ -19,7 +19,10 @@ score is capped at `100.0`.
 | `document.result == "consider"` | +60 | `document_result_consider` |
 | `aml.riskLevel` / `aml.risk_level == "high"` | +80 | `aml_high_risk` |
 | `biometric.result == "consider"` | +50 | `biometric_consider` |
-| `document.image_integrity.result == "consider"` | +70 | `image_integrity_consider` |
+| `biometric.result == "unidentified"` | +40 | `biometric_unidentified` |
+| `biometric.result == "error"` | +40 | `biometric_error` |
+| `biometric.livenessPassed == false` (real check only) | +20 | `biometric_liveness_failed` |
+| `document.imageIntegrity` / `image_integrity .result == "consider"` | +70 | `image_integrity_consider` |
 | `aml.riskLevel` / `aml.risk_level == "medium"` | +20 | `aml_medium_risk` |
 | `ip.isVpn` / `ip.is_vpn` truthy | +15 | `ip_vpn` |
 | `ip.isProxy` / `ip.is_proxy` truthy | +20 | `ip_proxy` |
@@ -44,13 +47,18 @@ Example: a `document.result == "consider"` (+60) together with
   ```json
   { "score": 100.0, "factors": ["document_result_consider", "aml_high_risk"] }
   ```
-- `POST /internal/ip` → body `{ "sessionId": "...", "ipAddress": "..." }`, returns a stub IP result:
+- `POST /internal/ip` → body `{ "sessionId": "...", "ipAddress": "..." }`, returns a
+  rule-based IP risk result derived from the address (see `app/ip_risk.py`):
   ```json
   {
-    "ipRiskScore": 0.0, "isVpn": false, "isProxy": false,
-    "country": "LK", "checkType": "ip", "provider": "stub", "status": "complete"
+    "ipRiskScore": 80.0, "isVpn": true, "isProxy": true, "country": null,
+    "factors": ["datacenter_ip"], "checkType": "ip",
+    "provider": "rule-based", "status": "complete"
   }
   ```
+  Private/reserved IPs score `0`; known datacenter/hosting ranges are flagged as
+  proxy/VPN (`80`); other public IPs get a low baseline (`10`). A production
+  deployment would back this with a MaxMind / IP-intelligence lookup.
 
 ## Environment variables
 
