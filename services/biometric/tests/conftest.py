@@ -24,6 +24,17 @@ def settings() -> Settings:
 
 
 @pytest.fixture
+def settings_rekognition() -> Settings:
+    """Return a Settings instance with the Rekognition fallback enabled."""
+    return Settings(
+        ONFIDO_API_TOKEN="api_sandbox.test_token",
+        ONFIDO_BASE_URL="https://api.eu.onfido.com/v3.6",
+        AWS_REGION="ap-south-1",
+        REKOGNITION_ENABLED=True,
+    )
+
+
+@pytest.fixture
 def sample_request() -> BiometricCheckRequest:
     """Return a valid BiometricCheckRequest with a tiny JPEG selfie."""
     return BiometricCheckRequest(
@@ -31,6 +42,18 @@ def sample_request() -> BiometricCheckRequest:
         selfie_base64=_TINY_JPEG_BASE64,
         document_id="test-doc-456",
         session_id="test-session-789",
+    )
+
+
+@pytest.fixture
+def sample_request_with_doc() -> BiometricCheckRequest:
+    """Return a request that also carries a document face photo."""
+    return BiometricCheckRequest(
+        applicant_id="test-applicant-123",
+        selfie_base64=_TINY_JPEG_BASE64,
+        document_id="test-doc-456",
+        session_id="test-session-789",
+        doc_photo_base64=_TINY_JPEG_BASE64,
     )
 
 

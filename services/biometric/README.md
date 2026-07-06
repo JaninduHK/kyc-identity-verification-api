@@ -22,10 +22,29 @@ the Temporal orchestrator.
 | ------ | ----------------- | ----------------------------------------------------------------- |
 | POST   | `/internal/check` | Run a biometric check. Body: `BiometricCheckRequest`. Returns 200.|
 | GET    | `/health`         | Liveness probe. Returns `HealthResponse` with status 200.         |
+| GET    | `/ready`          | Readiness probe. Returns `{"status": "ready"}` (no DB dependency). |
 
 `POST /internal/check` always returns HTTP 200 with a `BiometricCheckResult`.
 Provider failures are captured in the `error` field rather than raised, so the
 orchestrator decides how to react to error results.
+
+### Wire format (camelCase)
+
+The service is called by the Node/TS orchestrator, so request and response
+bodies use **camelCase** on the wire (`selfieBase64`, `applicantId`,
+`documentId`, `sessionId`, `docPhotoBase64`; `faceMatch`, `similarityScore`,
+`livenessPassed`, `onfidoReportId`). Snake_case keys are also accepted for
+convenience, so both `selfie_base64` and `selfieBase64` work.
+
+Request fields:
+
+| Field            | Required | Description                                                     |
+| ---------------- | -------- | --------------------------------------------------------------- |
+| `applicantId`    | Yes      | Onfido applicant ID (from the document service).                |
+| `documentId`     | Yes      | Onfido document ID (from the document service).                 |
+| `selfieBase64`   | Yes      | base64 JPEG/PNG selfie to verify.                               |
+| `sessionId`      | Yes      | Session ID for logging and tracing.                             |
+| `docPhotoBase64` | No       | base64 document face photo; **required to enable the fallback**.|
 
 ## How to run locally
 
@@ -49,9 +68,12 @@ pytest tests/ -v
   `image_integrity` breakdown.
 - **AWS Rekognition (fallback)** — performs a direct image-to-image face
   comparison via `compare_faces`. It does **not** perform liveness detection,
-  so `liveness_passed` is always `False` for Rekognition results. The fallback
-  is gated behind `REKOGNITION_ENABLED` and requires a document photo to
-  compare against.
+  so `livenessPassed` is always `False` for Rekognition results. The fallback
+  runs when **all** of the following hold: the Onfido check returned an error,
+  `REKOGNITION_ENABLED=true`, and the request supplied a `docPhotoBase64` to
+  compare against (Onfido otherwise holds the only document photo). The blocking
+  boto3 call is dispatched off the event loop via `asyncio.to_thread`. If any
+  condition is unmet the Onfido error result is returned unchanged.
 
 ## Dependencies
 
