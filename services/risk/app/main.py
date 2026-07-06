@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import Body, FastAPI, HTTPException
 
 from app.config import settings
+from app.ip_risk import assess_ip
 from app.models import RiskScoreRequest, RiskScoreResult
 from app.scoring import rule_based_score
 
@@ -79,21 +80,30 @@ def score(request: RiskScoreRequest) -> RiskScoreResult:
 
 @app.post("/internal/ip")
 def ip_check(payload: dict[str, Any] = Body(default_factory=dict)) -> dict[str, Any]:
-    """Stub IP risk lookup.
+    """Rule-based IP risk lookup.
 
-    The orchestrator calls ``RISK_URL/internal/ip``; until a real IP-intelligence
-    provider is wired in this returns a benign, complete result.
+    The orchestrator calls ``RISK_URL/internal/ip`` with ``{sessionId, ipAddress}``.
+    Assessment is derived from the actual IP (private/datacenter/public); see
+    ``app.ip_risk``.
     """
     try:
         session_id = payload.get("sessionId")
-        logger.debug("ip check for session %s", session_id)
+        ip_address = payload.get("ipAddress")
+        assessment = assess_ip(ip_address)
+        logger.debug(
+            "ip check for session %s -> %s (%s)",
+            session_id,
+            assessment["ipRiskScore"],
+            assessment["factors"],
+        )
         return {
-            "ipRiskScore": 0.0,
-            "isVpn": False,
-            "isProxy": False,
-            "country": "LK",
+            "ipRiskScore": assessment["ipRiskScore"],
+            "isVpn": assessment["isVpn"],
+            "isProxy": assessment["isProxy"],
+            "country": assessment["country"],
+            "factors": assessment["factors"],
             "checkType": "ip",
-            "provider": "stub",
+            "provider": "rule-based",
             "status": "complete",
         }
     except HTTPException:
