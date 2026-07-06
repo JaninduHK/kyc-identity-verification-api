@@ -11,18 +11,11 @@ interface BiometricResponse {
   livenessPassed?: boolean;
 }
 
-function defaultResult(): BiometricResult {
-  return {
-    checkType: 'biometric',
-    provider: 'onfido',
-    status: 'error',
-    result: 'error',
-    faceMatch: false,
-    similarityScore: 0,
-    livenessPassed: false,
-  };
-}
-
+/**
+ * Calls the biometric service with the selfie and the Onfido applicant/document
+ * IDs produced by the document check. Throws on transport/5xx so Temporal
+ * retries; logical failures return in the 200 body.
+ */
 export async function runOnfidoBiometric(
   input: CDDInput & { applicantId?: string; documentId?: string },
 ): Promise<BiometricResult> {
@@ -49,6 +42,6 @@ export async function runOnfidoBiometric(
     };
   } catch (err) {
     logger.error({ err, sessionId: input.sessionId }, 'biometric check failed');
-    return defaultResult();
+    throw err;
   }
 }

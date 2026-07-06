@@ -17,6 +17,8 @@ export async function createAuditEvent(input: {
       data: input.data,
     });
   } catch (err) {
+    // Audit is compliance-critical: rethrow so Temporal retries the write.
     logger.error({ err, sessionId: input.sessionId, eventType: input.eventType }, 'audit event failed');
+    throw err;
   }
 }

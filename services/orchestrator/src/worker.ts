@@ -29,7 +29,12 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err: unknown) => {
-  logger.fatal({ err }, 'worker terminated unexpectedly');
-  process.exit(1);
-});
+// Only start a worker when this file is the process entrypoint. The server
+// imports this module transitively (for TASK_QUEUE), and without this guard the
+// server process would spin up a second worker as an import side effect.
+if (require.main === module) {
+  main().catch((err: unknown) => {
+    logger.fatal({ err }, 'worker terminated unexpectedly');
+    process.exit(1);
+  });
+}

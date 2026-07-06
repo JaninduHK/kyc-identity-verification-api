@@ -13,6 +13,9 @@ export async function fireWebhook(input: {
       payload: input.payload,
     });
   } catch (err) {
+    // Rethrow so Temporal retries the hand-off to the notification service,
+    // which itself performs durable retries of the actual delivery.
     logger.error({ err, sessionId: input.sessionId, url: input.url }, 'webhook delivery failed');
+    throw err;
   }
 }
