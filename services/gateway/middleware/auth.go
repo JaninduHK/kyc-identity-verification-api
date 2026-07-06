@@ -25,8 +25,10 @@ type contextKey string
 // stored.
 const clientIDKey contextKey = "client_id"
 
-// apiKeyCacheTTL is how long a resolved API key result is cached in Redis.
-const apiKeyCacheTTL = 5 * time.Minute
+// apiKeyCacheTTL is how long a resolved API key result is cached in Redis. Kept
+// short so a revoked key stops authenticating within this window (the previous
+// 5-minute cache let a revoked key keep working for up to 5 minutes).
+const apiKeyCacheTTL = 30 * time.Second
 
 // ClientIDFromContext returns the authenticated client ID stored in ctx, if
 // any.
