@@ -77,6 +77,7 @@ func main() {
 
 	r.Post("/internal/events", h.PostEvent)
 	r.Get("/internal/events/{sessionId}", h.GetEvents)
+	r.Get("/internal/verify", h.VerifyChain)
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.AuditPort,
