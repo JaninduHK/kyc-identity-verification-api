@@ -25,10 +25,15 @@ Request body (`DocumentCheckRequest`):
 }
 ```
 
-Response (`DocumentCheckResult`): includes `onfido_report_id`, `result`,
-`sub_result`, `extracted_name`, `extracted_dob`, `extracted_nic`,
-`document_type`, `issuing_country`, `image_integrity`, `visual_authenticity`,
-and `confidence`.
+Response (`DocumentCheckResult`), serialised as **camelCase** for the
+orchestrator: `status` (`completed`/`error`), `result`, `subResult`,
+`extractedName`, `extractedDob`, `extractedNic`, `documentType`,
+`issuingCountry`, `applicantId`, `documentId`, `onfidoReportId`,
+`imageIntegrity`, `visualAuthenticity`, `confidence`, and `error`.
+
+`applicantId` and `documentId` are the Onfido identifiers the **biometric**
+service needs to run its facial-similarity check against the same
+applicant/document, so they are always returned on a successful check.
 
 ## Flow
 
@@ -36,8 +41,15 @@ and `confidence`.
 2. Upload the NIC image as a `national_identity_card` document.
 3. Create a `document` report check.
 4. Poll the report (every 2s, up to 15 attempts) until complete.
-5. On any failure, fall back to Tesseract OCR (`sin+tam+eng`) to extract the
-   NIC number, returning `result="unidentified"` with low confidence.
+
+### Failure handling
+
+The OCR fallback runs **only when Onfido is genuinely unavailable** (network,
+timeout, or 5xx): it extracts the NIC via Tesseract (`sin+tam+eng`) and returns
+`result="unidentified"`, `subResult="ocr_fallback"` with low confidence.
+Auth/config errors (401/403), other 4xx, a polling timeout, and invalid input
+instead return `status="error"` with an `error` code — they must not silently
+degrade every request to low-confidence OCR.
 
 ## Environment variables
 

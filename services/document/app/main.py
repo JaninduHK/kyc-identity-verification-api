@@ -53,12 +53,17 @@ async def ready() -> dict:
 
 @app.post("/internal/check", response_model=DocumentCheckResult)
 async def internal_check(req: DocumentCheckRequest) -> DocumentCheckResult:
-    """Run an internal document verification check."""
+    """Run an internal document verification check.
+
+    ``check_document`` captures provider failures in the result (status/error)
+    rather than raising, so a 500 here means an unexpected internal fault; we
+    return a generic message and keep the detail in the logs.
+    """
     try:
         return await check_document(req.nicImageBase64, req.sessionId)
-    except Exception as e:  # noqa: BLE001
-        logger.exception("Document check failed")
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:  # noqa: BLE001
+        logger.exception("Document check failed for session %s", req.sessionId)
+        raise HTTPException(status_code=500, detail="internal_error")
 
 
 if __name__ == "__main__":
