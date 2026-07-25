@@ -5,6 +5,7 @@
 
 **Kestrel Technologies (Pvt) Ltd** — a microservices-based KYC & identity
 verification API for the Sri Lankan market (NIC + eNIC, AML/sanctions screening,
+
 biometric face match, PDPA-compliant data handling).
 
 ### ⚠️ Legal Disclaimer
