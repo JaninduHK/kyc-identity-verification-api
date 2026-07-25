@@ -1,8 +1,28 @@
 # Kestrel KYC
 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![CI](https://github.com/JaninduHK/KYC-identity-verification-API/actions/workflows/test.yml/badge.svg)](https://github.com/JaninduHK/KYC-identity-verification-API/actions/workflows/test.yml)
+
 **Kestrel Technologies (Pvt) Ltd** — a microservices-based KYC & identity
 verification API for the Sri Lankan market (NIC + eNIC, AML/sanctions screening,
 biometric face match, PDPA-compliant data handling).
+
+### ⚠️ Legal Disclaimer
+
+This software is provided for educational and informational purposes.
+
+**It does not constitute legal, compliance, or regulatory advice.**
+
+Users are solely responsible for:
+- Obtaining all required regulatory approvals in their jurisdiction
+- Ensuring compliance with applicable KYC/AML laws and regulations  
+- Signing Data Processing Agreements with all third-party sub-processors (Onfido, ComplyAdvantage, etc.)
+- Registering with relevant data protection authorities (in Sri Lanka: the Data Protection Authority under PDPA No. 9 of 2022)
+- Obtaining institutional agreements required for any government database integrations
+
+In Sri Lanka, access to the DRP (Department of Registration of Persons) NIC database requires a formal institutional agreement under FIU Guideline No. 03/2020. **This software does not provide that access.**
+
+Kestrel Technologies (Pvt) Ltd accepts no liability for regulatory non-compliance arising from use of this software.
 
 ## Architecture
 
@@ -80,3 +100,15 @@ infra/        terraform/ (AWS) · k8s/ (manifests)
   blocked by DB rules, and rows are SHA-256 hash-chained.
 - **AML**: sanction hits auto-generate a Suspicious Transaction Report (STR) PDF
   to S3 (KMS-encrypted) and alert the compliance officer.
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request.
+
+To report a security vulnerability, see [SECURITY.md](SECURITY.md). Do not open a public issue for security problems.
+
+## License
+
+This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for the full text.
+
+Third-party provider integrations (Onfido, ComplyAdvantage, etc.) are subject to their own separate terms of service. See [PROVIDERS.md](PROVIDERS.md) for details.

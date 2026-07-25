@@ -1,51 +1,82 @@
-# ---- Environment & secrets -------------------------------------------------
+# ============================================================================
+# Kestrel KYC — .gitignore
+# ============================================================================
+
+# ---- 1. Credentials & secrets ----------------------------------------------
 .env
 .env.local
+.env.production
+.env.staging
 .env.*.local
+!.env.example
+
+keys/*.pem
+keys/*.key
 *.pem
-keys/
+*.p12
+*.pfx
+*_rsa
+# Public keys aren't secret — keep them trackable even though they match *_rsa.
+!*_rsa.pub
 
-# ---- Go --------------------------------------------------------------------
-/services/*/bin/
-*.exe
-*.test
-*.out
-vendor/
+terraform.tfvars
+infra/terraform/terraform.tfvars
+*.tfvars
+!*.tfvars.example
 
-# ---- Node.js / TypeScript --------------------------------------------------
+# ---- 2. Go ------------------------------------------------------------------
+services/*/bin/
+services/*/*.exe
+services/*/*.test
+services/*/coverage.out
+services/*/vendor/
+
+# ---- 3. Node.js / TypeScript -------------------------------------------------
 node_modules/
-dist/
-build/
-*.tsbuildinfo
+sdk/javascript/dist/
+services/*/dist/
+services/*/.next/
 npm-debug.log*
 yarn-error.log*
-coverage/
+*.tsbuildinfo
 .npm/
 
-# ---- Python ----------------------------------------------------------------
+# ---- 4. Python ----------------------------------------------------------------
 __pycache__/
-*.py[cod]
-*.egg-info/
+*.pyc
+*.pyo
 .venv/
 venv/
-env/
+services/*/.venv/
+services/*/venv/
+*.egg-info/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+htmlcov/
 
-# ---- Docker ----------------------------------------------------------------
+# ---- 5. Terraform -------------------------------------------------------------
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.backup
+infra/terraform/*.tfstate.*
+# .terraform.lock.hcl is intentionally tracked (pins provider versions for
+# reproducible builds) — do not ignore it.
+
+# ---- 6. Docker ------------------------------------------------------------------
+.docker/
 docker-compose.override.yml
 
-# ---- Terraform -------------------------------------------------------------
-.terraform/
-*.tfstate
-*.tfstate.*
-*.tfvars
-!*.tfvars.example
-.terraform.lock.hcl
-
-# ---- IDE / OS --------------------------------------------------------------
+# ---- 7. IDE / OS -----------------------------------------------------------------
 .DS_Store
 .idea/
-.vscode/
+.vscode/*
+!.vscode/extensions.json
 *.swp
+*.swo
+Thumbs.db
+
+# ---- 8. Test artifacts -------------------------------------------------------------
+coverage/
+test-results/
+*.cover
