@@ -1,6 +1,6 @@
 # Kestrel KYC
 
-**Kestrel Technologies (Pvt) Ltd** — a microservices-based KYC & identity
+**Kestrel Technologies (Pvt) Ltd** - a microservices-based KYC & identity
 verification API (NIC + eNIC, AML/sanctions screening,
 biometric face match, PDPA-compliant data handling).
 
