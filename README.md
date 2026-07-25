@@ -69,7 +69,7 @@ Temporal UI → http://localhost:8088 · RabbitMQ → http://localhost:15672.
 
 ## Services & team assignments
 
-| Service        | Lang        | Port | Owning team        | Responsibility                                   |
+| Service        | Lang        | Port | Owning             | Responsibility                                   |
 |----------------|-------------|------|--------------------|--------------------------------------------------|
 | `gateway`      | Go          | 8080 | Platform / Edge    | Auth, rate limiting, public API, routing         |
 | `orchestrator` | Node/TS     | 3001 | Workflow           | Temporal CDD/EDD workflows + activities          |
